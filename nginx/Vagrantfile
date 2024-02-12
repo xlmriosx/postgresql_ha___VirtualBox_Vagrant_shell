@@ -1,0 +1,43 @@
+
+# /etc/nginx
+# |_nginx.conf --> main: user, requests, threads
+# |_conf.d (nginx.conf include this like *.conf)
+# | |_default.conf --> virtual host, error page, default page
+# |_fastcgi_params --> dynamic pages
+# |_mime.types --> data formats
+# |_modules --> add modules
+
+# reload conf "sudo nginx -s reload" everytime you modify conf need reload
+# test nginx with "sudo nginx -t"
+
+Vagrant.configure("2") do |cfg|
+    cfg.vm.hostname = "nginx"
+    cfg.vm.network "private_network", ip: "11.0.0.1"
+    cfg.vm.box = "alvistack/ubuntu-23.10"
+
+    config.vm.provision "shell", inline: <<-SHELL
+        echo "========== Installing nginx =========="
+        pack_1="deb [arch=amd64] http://nginx.org/packages/mainline/ubuntu/ bionic nginx"
+        pack_2="deb-src http://nginx.org/packages/mainline/ubuntu/ bionic nginx"
+        echo $pack_1 | tee >> ~/nginx.list
+        echo $pack_2 | tee >> ~/nginx.list
+        sudo mv /home/vagrant/nginx.list /etc/apt/sources.list.d/nginx.list
+        wget http://nginx.org/keys/nginx_signing.key
+        sudo apt-key add nginx_signing.key
+        sudo apt-get update -y
+        sudo apt-get install nginx -y
+        sudo service nginx start
+        sudo systemctl enable nginx
+        echo "========== Completed installation nginx =========="
+    SHELL
+    # Setting file of configuration
+    cfg.vm.provision "file", source: "default.conf", destination: "/etc/nginx/conf.d/default.conf"
+
+    cfg.vm.synced_folder ".", "./vagrant", disabled: true
+    # Removing ssh
+    cfg.ssh.insert_key = false
+    # Config ssh key
+    cfg.ssh.private_key_path = ["../ssh/vagrant", "~/.vagrant.d/insecure_private_key"]
+    cfg.vm.provision "file", source: "../ssh/vagrant.pub", destination: "~/.ssh/authorized_keys"
+
+end
